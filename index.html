@@ -241,12 +241,31 @@ input:focus{outline:none;border-color:var(--pink)}
 }
 .round{font-size:13px;opacity:.95;margin-top:4px}
 
+/* 지금 내가 차는 차례인지 막는 차례인지. 프롬프트는 화면 맨 아래 작은 글씨라,
+   한 판 하는 내내 "지금 내가 차는 건가?"를 헷갈렸다. 색까지 갈라놓는다 */
+.turnbar{
+  display:none;width:fit-content;margin:7px auto 0;padding:5px 14px;
+  border-radius:999px;font-size:15px;font-weight:900;
+  box-shadow:0 3px 0 rgba(0,0,0,.15);
+}
+.turnbar.on{display:block}
+.turnbar.atk{background:var(--yellow);color:var(--ink)}        /* 내가 찬다 */
+.turnbar.def{background:#17418c;color:#fff}                    /* 내가 막는다 */
+.turnbar.wait{background:rgba(255,255,255,.22);color:#eaf4ed;box-shadow:none}
+/* 점수판에서도 지금 차는 쪽만 밝게 */
+.scoreline .nm{opacity:.45;transition:opacity .2s}
+.scoreline .nm.kick{opacity:1}
+.scoreline .nm.kick::before{content:"⚽"}
+
 /* 큰 폰에서는 골대 아래로 빈 잔디만 200px 넘게 남았고, 지시 문구가 골대에서
    300px 떨어져 눈이 한 번에 못 담았다. 남는 자리를 위아래로 나눠 골대를
    조작부 쪽으로 내린다. 짧은 화면은 남는 자리가 없어 지금과 똑같이 보인다.
    상한(340)은 올리지 않는다 — 키워봤더니 골대가 1.6:1로 퍼져 창문처럼 보이고
    골키퍼가 골라인 밖으로 넘쳤다. 가로는 어차피 화면 폭에 묶여 있어 같이 못 키운다. */
-.stage{flex:1;position:relative;display:flex;align-items:center;justify-content:center;min-height:0;padding-top:6px}
+/* touch-action:none — 끌기가 시작된 뒤에 걸면 늦는다. 브라우저는 손이 닿는 순간
+   이 제스처를 스크롤로 쓸지 정하고, 안드로이드에서 아래로 당기는 동작은
+   "당겨서 새로고침"과 겹친다. 골대 영역은 처음부터 브라우저에 넘기지 않는다 */
+.stage{flex:1;position:relative;display:flex;align-items:center;justify-content:center;min-height:0;padding-top:6px;touch-action:none}
 /* aspect-ratio는 가로만 보고 세로를 안 봐서 짧은 화면에서 조작부를 덮었다.
    칸 위치는 전부 %라서 정사각형이 아니어도 배치는 그대로다. */
 .goalwrap{position:relative;width:100%;max-width:340px;height:100%;max-height:340px}
@@ -271,6 +290,8 @@ input:focus{outline:none;border-color:var(--pink)}
 /* 고를 수 있는 칸은 확실히 눈에 띄어야 한다 — 어린이가 보는 화면이다 */
 .cells.live .cell{background:rgba(255,255,255,.26);border-style:solid;border-width:3px;border-color:#fff}
 .cells.live .cell:active{background:var(--yellow);transform:scale(.95)}
+/* 공격수는 끌어서 조준한다 — 칸 선은 그때 방해만 된다 */
+.cells.quiet .cell{border-color:transparent}
 .cell.picked{background:var(--yellow);border-color:#fff;color:var(--ink)}
 
 .keeper{
@@ -320,6 +341,24 @@ input:focus{outline:none;border-color:var(--pink)}
   clip-path:polygon(50% 0,100% 38%,81% 100%,19% 100%,0 38%);
 }
 .ball.fly{transition:left .42s cubic-bezier(.3,.1,.5,1),top .42s cubic-bezier(.3,.1,.5,1),width .42s}
+
+/* ===== 끌어서 차기 =====
+   당긴 반대 방향으로 공이 간다. 방향은 좌우를, 길이는 세기를 정한다.
+   세게 찰수록 높이 뜨는 건 물리 그대로다 — 설명이 필요 없다. */
+/* 당기는 손가락까지 이어지는 줄 — 지금 얼마나 당겼는지 눈에 보여야 한다 */
+.pullline{
+  position:absolute;height:5px;border-radius:3px;transform-origin:0 50%;
+  background:repeating-linear-gradient(90deg,#fff 0 9px,transparent 9px 16px);
+  opacity:0;pointer-events:none;z-index:5;
+}
+/* 공이 갈 자리. 골대 안이면 노랗고, 벗어나면 빨갛다 */
+.aimghost{
+  position:absolute;width:12%;aspect-ratio:1;border-radius:50%;
+  border:3px dashed var(--yellow);background:rgba(255,217,61,.25);
+  transform:translate(-50%,-50%);opacity:0;pointer-events:none;z-index:5;
+}
+.aimghost.out{border-color:var(--red);background:rgba(220,38,38,.3)}
+.pullline.on,.aimghost.on{opacity:1}
 
 .verdict{
   position:absolute;left:0;right:0;top:34%;
@@ -572,6 +611,7 @@ input:focus{outline:none;border-color:var(--pink)}
         <span class="nm" id="m-n1"></span>
       </div>
       <div class="round" id="m-round"></div>
+      <div class="turnbar" id="m-turn"></div>
     </div>
 
     <div class="stage" id="stage">
@@ -583,6 +623,8 @@ input:focus{outline:none;border-color:var(--pink)}
           <div class="head"></div><div class="body"><span class="num" id="k-num"></span></div>
         </div>
         <div class="pitch"></div>
+        <div class="pullline" id="pullline"></div>
+        <div class="aimghost" id="aimghost"></div>
         <div class="ball" id="ball"></div>
         <div class="verdict" id="verdict"></div>
       </div>
@@ -686,6 +728,8 @@ const CFG = {
   POWER_OVER: 92,     // 초과하면 실축 (골대 넘김)
   POWER_STRONG: 72,   // 이상이면 강슛 — 읽혀도 뚫고, 옆칸 손끝도 지나간다
   POWER_WEAK: 50,     // 미만이면 약슛 — 옆칸 발끝에 확실히 걸린다
+  AIM_HIGH: 70,       // 이 세기부터 공이 윗줄에 꽂힌다. 쓸 만한 세기(50~92)가
+                      // 아랫줄·윗줄에 고루 걸리게 맞춘 값 — 낮추면 윗줄만 쓰게 된다
   REACH: 0.25,        // 보통 세기가 옆칸으로 뛴 골키퍼 손끝에 걸릴 확률. 이게 0이면
                       // "아무 데나 중간 세기"가 위험 0에 83%라 게이지가 장식이 된다
   GAUGE_MS: 1700,     // 게이지 한쪽 끝까지 가는 시간. 강슛 구간(72~92)이 340ms가 된다
@@ -1307,6 +1351,7 @@ async function netReveal(m){
 
 /* 상대를 기다리는 동안. 누를 게 없으므로 버튼을 내린다 (불변 원칙 20) */
 function netWait(msg){
+  turnbar("wait", "상대 차례");
   prompt_(msg);
   action(false, "🤫 기다리는 중…");
 }
@@ -1506,7 +1551,8 @@ function beginTurn(){
 function resetPitch(){
   const cells = $("cells");
   cells.innerHTML = "";
-  cells.classList.remove("live");
+  cells.classList.remove("live", "quiet");
+  aimClear();
   for(let i=0;i<6;i++){
     const d = document.createElement("div");
     d.className = "cell";
@@ -1539,7 +1585,10 @@ function resetPitch(){
 function attackPhase(){
   const atk = G.players[G.turn];
 
+  paintKicker();
+
   if(atk.ai){
+    turnbar("wait", actorName(atk.name, "차는 중"));
     prompt_(josa(atk.name, "이", "가") + " 준비 중…");
     action(false, "잠깐 기다려…");
     later(() => {
@@ -1557,46 +1606,37 @@ function attackPhase(){
     $("m-hint").classList.add("on");
   }
 
-  prompt_("어디로 찰까? 🎯");
-  action(false, "☝️ 골대에서 찰 곳을 눌러줘");
-  $("cells").classList.add("live");
-  bindCells(cell => {
-    G.shot = { cell: cell, power: 0 };
-    markCell(cell);
-    $("cells").classList.remove("live");
+  turnbar("atk", actorName(atk.name, "찬다"));
+  prompt_("공을 당겼다 놓아! ⚽");
+  action(false, "👆 당긴 반대쪽으로, 길게 당길수록 세게");
+  $("cells").classList.add("quiet");   // 조준은 끌기로 한다 — 칸 선은 지금 방해만 된다
+  gaugeShow(true); needleTo(0);
+  armDrag(a => {
+    G.shot = { cell: a.cell, power: a.power };
+    G.history[G.turn].push(a.cell);
+    markCell(a.cell);
+    stopTimer();
+    SFX.kick();
+    buzz(20);
+    gaugeOff();
     $("m-hint").classList.remove("on");
-    powerPhase();
+    action(false, "…");
+    if(G.mode === "net"){ netCommit(); return; }   // 잠근 값만 올리고 기다린다
+    defendPhase();
   });
   startTimer(() => {
-    // 시간 초과 = 실축. 파워를 고르던 중일 수도 있으므로 버튼과 게이지를 확실히 닫는다.
+    // 시간 초과 = 실축. 당기던 중일 수도 있으므로 끌기와 계기판을 확실히 닫는다.
     // to를 남긴다 — 찬 적이 없는데 "너무 세게 찼어"라고 하면 아이는 자기가 뭘
     // 잘못했는지 영영 모른다
     G.shot = { cell: 4, power: 100, to: 1 };
     G.history[G.turn].push(4);
-    $("cells").classList.remove("live");
-    unbindCells();
+    disarmDrag();
+    aimClear();
     gaugeOff();
     action(false, "…");
     if(G.mode === "net"){ netCommit(); return; }
     defendPhase();
   });
-}
-
-function powerPhase(){
-  prompt_("얼마나 세게? 💪");
-  action(true, "차기!");
-  gaugeOn();
-  $("m-action").onclick = () => {
-    const p = stopGauge();
-    G.shot.power = p;
-    G.history[G.turn].push(G.shot.cell);
-    stopTimer();
-    SFX.kick();
-    buzz(20);
-    action(false, "…");
-    if(G.mode === "net"){ netCommit(); return; }   // 잠근 값만 올리고 기다린다
-    defendPhase();
-  };
 }
 
 /* ---------- 수비 ---------- */
@@ -1607,15 +1647,18 @@ function defendPhase(){
   const kp = G.players[1 - G.turn];
 
   if(kp.ai){
+    turnbar("wait", actorName(kp.name, "막는 중"));
     prompt_(josa(kp.name, "이", "가") + " 막으러 갑니다!");
     later(() => { G.dive = aiDive(); resolve(); }, 700);
     return;
   }
 
   const go = () => {
+    turnbar("def", actorName(kp.name, "막는다"));
     prompt_("어디로 뛸까? 🧤");
     action(false, "☝️ 골대에서 뛸 곳을 눌러줘");
     resetPitch();                       // 공격수 선택 흔적 제거
+    $("cells").classList.remove("quiet");
     $("cells").classList.add("live");
     bindCells(cell => {
       G.dive = cell;
@@ -1697,6 +1740,7 @@ function resolve(){
   stopTimer();
   unbindCells();
   prompt_("");
+  $("m-turn").className = "turnbar";   // 공이 날아가는 동안엔 차례 표시를 내린다
   action(false, "…");
   const r = judge(G.shot, G.dive, shotRoll("hard"), shotRoll("toe"));
   const scored = (r === "GOAL" || r === "GOAL_HARD");
@@ -1773,6 +1817,112 @@ function resolve(){
     later(nextTurn, 1700);
   }, 450);
 }
+
+/* ============================================================
+   끌어서 차기
+
+   당긴 반대 방향으로 공이 간다.
+     방향(각도) → 좌우 어디로.  길이 → 얼마나 세게.
+   둘은 서로를 건드리지 않는다 — 옆으로 살짝 당기면 "옆으로 약하게",
+   옆으로 많이 당기면 "옆으로 세게"다.
+
+   높이만은 세기를 따라간다. 세게 차면 높이 뜨는 건 공이 원래 그렇고,
+   그래서 "구석 높이 세게"가 제일 좋지만 제일 위험한 구조가 저절로 나온다.
+
+   판정·통신·로봇은 지금처럼 6칸으로 돌린다. 끌어서 정한 지점을
+   가장 가까운 칸으로 스냅할 뿐이라, judge()도 사물함 쪽지도 그대로다.
+   ============================================================ */
+const PULL_MAX  = 46;   // 골대폭 기준 %. 이만큼 당기면 최대 세기
+const SPREAD    = 54;   // 완전히 옆으로 당겼을 때 좌우로 벌어지는 정도
+const GOAL_LINE = 56;   // 골대 아래 끝 (goalwrap 기준 %)
+const ROW_EDGE  = 30;   // 윗줄과 아랫줄의 경계
+
+function aimFrom(sx, sy){
+  const len = Math.hypot(sx, sy);
+  const power = Math.min(112, len / PULL_MAX * 100);     // 112까지 — 넘기면 실축
+  const x = 50 + (len ? sx / len : 0) * SPREAD;
+  // 세기가 높이를 정한다. AIM_HIGH에서 정확히 줄 경계(윗줄/아랫줄)에 닿게 잡아야
+  // 쓸 만한 세기 구간이 두 줄에 고루 걸린다 — 안 그러면 아랫줄이 약슛 전용이 된다
+  const y = GOAL_LINE - power * (GOAL_LINE - ROW_EDGE) / CFG.AIM_HIGH;
+  let cell = 4, best = Infinity;
+  for(let i = 0; i < 6; i++){
+    const c = cellPos(i), d = (c.x - x) * (c.x - x) + (c.y - y) * (c.y - y);
+    if(d < best){ best = d; cell = i; }
+  }
+  return { cell: cell, power: power, x: x, y: y };
+}
+
+/* 골대 밖으로 나가는 조준인가 — 미리보기 색을 바꿔 경고한다 */
+function aimOut(a){ return a.power > CFG.POWER_OVER || a.x < 6 || a.x > 94; }
+
+function paintAim(a, pull){
+  const ghost = $("aimghost"), line = $("pullline");
+  ghost.className = "aimghost on" + (aimOut(a) ? " out" : "");
+  ghost.style.left = a.x + "%";
+  ghost.style.top  = Math.max(2, a.y) + "%";
+  // 공에서 손가락까지 줄을 긋는다
+  const deg = Math.atan2(pull.y - 88, pull.x - 50) * 180 / Math.PI;
+  line.className = "pullline on";
+  line.style.left = "50%";
+  line.style.top = "88%";
+  line.style.width = Math.hypot(pull.x - 50, pull.y - 88) + "%";
+  line.style.transform = "rotate(" + deg + "deg)";
+  needleTo(a.power);
+}
+function aimClear(){
+  $("aimghost").className = "aimghost";
+  $("pullline").className = "pullline";
+}
+
+/* 끌기를 받는다. 손을 떼면 onShoot({cell, power})을 부른다 */
+function armDrag(onShoot){
+  const wrap = $("goalwrap"), stage = $("stage");
+  let id = null, sx = 0, sy = 0;
+  const pct = e => {
+    const r = wrap.getBoundingClientRect();
+    return { x:(e.clientX - r.left) / r.width * 100, y:(e.clientY - r.top) / r.height * 100 };
+  };
+  const down = e => {
+    if(id !== null) return;
+    id = e.pointerId; sx = 0; sy = 0;
+    stage.setPointerCapture(id);
+    DRAG.start = pct(e);
+    gaugeShow(true);
+  };
+  const move = e => {
+    if(e.pointerId !== id) return;
+    const p = pct(e);
+    // 당긴 반대쪽으로 찬다
+    sx = DRAG.start.x - p.x;
+    sy = DRAG.start.y - p.y;
+    paintAim(aimFrom(sx, sy), p);
+  };
+  const up = e => {
+    if(e.pointerId !== id) return;
+    id = null;
+    // 손을 뗀 자리로 다시 잰다. 마지막 move가 안 오고 up만 오는 경우가 있다
+    const p = pct(e);
+    sx = DRAG.start.x - p.x;
+    sy = DRAG.start.y - p.y;
+    const a = aimFrom(sx, sy);
+    if(a.power < 6){ aimClear(); needleTo(0); return; }   // 톡 건드린 건 찬 게 아니다
+    disarmDrag();
+    aimClear();
+    onShoot(a);
+  };
+  DRAG.off = () => {
+    stage.removeEventListener("pointerdown", down);
+    stage.removeEventListener("pointermove", move);
+    stage.removeEventListener("pointerup", up);
+    stage.removeEventListener("pointercancel", up);
+  };
+  stage.addEventListener("pointerdown", down);
+  stage.addEventListener("pointermove", move);
+  stage.addEventListener("pointerup", up);
+  stage.addEventListener("pointercancel", up);
+}
+const DRAG = { off:null, start:{x:50,y:88} };
+function disarmDrag(){ if(DRAG.off){ DRAG.off(); DRAG.off = null; } }
 
 function cellPos(i){
   const col = i % 3, row = Math.floor(i / 3);
@@ -1913,6 +2063,23 @@ function aiDive(){
    ============================================================ */
 function prompt_(t){ $("m-prompt").textContent = t; }
 
+/* 지금 누가 무엇을 하는 차례인지 화면 위에 띄운다.
+   kind: "atk"(내가 찬다) | "def"(내가 막는다) | "wait"(상대 기다림) */
+function turnbar(kind, who){
+  const el = $("m-turn");
+  el.className = "turnbar on " + kind;
+  el.textContent = ({ atk:"⚽ ", def:"🧤 ", wait:"⏳ " }[kind] || "") + who;
+}
+/* "나"에는 조사가 안 붙는다 — "나가 찬다"가 되어버린다 */
+function actorName(name, verb){
+  return (name === OWNER ? "내가 " : josa(name, "이 ", "가 ")) + verb;
+}
+/* 점수판에서 지금 차는 쪽만 밝게. 골키퍼 유니폼 색만으로는 못 알아봤다 */
+function paintKicker(){
+  $("m-n0").classList.toggle("kick", G.turn === 0);
+  $("m-n1").classList.toggle("kick", G.turn === 1);
+}
+
 /* 누를 수 있을 때만 버튼이 나온다. 그 밖에는 점선 안내로 바뀐다 */
 function action(enabled, label){
   const b = $("m-action"), h = $("m-hintbar");
@@ -1969,30 +2136,14 @@ function paintGauge(){
   });
 }
 
-let gaugeVal = 0, gaugeDir = 1, gaugeT0 = 0;
-function gaugeOn(){
-  stopGauge();              // 돌고 있던 루프를 먼저 끊지 않으면 두 루프가 겹쳐 돈다
-  $("gaugewrap").classList.add("on");
-  gaugeVal = 0; gaugeDir = 1; gaugeT0 = performance.now();
-  const step = now => {
-    const dt = now - gaugeT0; gaugeT0 = now;
-    gaugeVal += gaugeDir * (dt / CFG.GAUGE_MS) * 100;
-    if(gaugeVal >= 100){ gaugeVal = 100; gaugeDir = -1; }
-    if(gaugeVal <= 0){ gaugeVal = 0; gaugeDir = 1; }
-    $("needle").style.left = "calc(" + gaugeVal + "% - 4px)";
-    G.gaugeId = requestAnimationFrame(step);
-  };
-  G.gaugeId = requestAnimationFrame(step);
+/* 예전엔 막대가 왔다 갔다 하고, 멈춘 자리가 세기였다. 이제는 당긴 길이가 세기라
+   같은 막대를 "지금 얼마나 당겼나"를 보여주는 계기판으로만 쓴다.
+   살살/강슛/실축 띠는 그대로여서 아이가 배우는 내용은 달라지지 않는다. */
+function gaugeShow(on){ $("gaugewrap").classList.toggle("on", on); }
+function needleTo(p){
+  $("needle").style.left = "calc(" + Math.max(0, Math.min(100, p)) + "% - 4px)";
 }
-function stopGauge(){
-  if(G.gaugeId) cancelAnimationFrame(G.gaugeId);
-  G.gaugeId = null;
-  return gaugeVal;
-}
-function gaugeOff(){
-  stopGauge();
-  $("gaugewrap").classList.remove("on");
-}
+function gaugeOff(){ gaugeShow(false); needleTo(0); }
 
 /* ---------- 제한 시간 ---------- */
 function startTimer(onOut, from){
@@ -2226,9 +2377,12 @@ function endSession(){
   clearPending();          // 예약된 연출·다음 턴
   stopTimer();             // 제한시간
   G.paused = null;         // 멈춰둔 제한시간까지 버린다
-  gaugeOff();              // 파워 게이지 루프
+  gaugeOff();              // 세기 계기판
+  disarmDrag();            // 끌어서 차기 핸들러
+  aimClear();              // 조준 미리보기
   unbindCells();           // 골대 칸 핸들러
   $("hoff-ok").onclick = null;
+  $("m-turn").className = "turnbar";
   action(false, "…");
   keepAwake(false);
   $("stage").querySelectorAll(".confetti").forEach(n => n.remove());
@@ -2292,8 +2446,11 @@ function buildRules(){
     <div class="card">
       <h3>🎯 찰 때</h3>
       <ul class="rulelist">
-        <li>골대에서 <b>찰 곳</b>을 누른다 (6칸 중 하나)</li>
-        <li>막대가 왔다 갔다 할 때 <b>차기!</b> — 멈춘 자리가 세기다</li>
+        <li><b>공을 당겼다 놓는다.</b> 당긴 <b>반대쪽</b>으로 날아간다 —
+            왼쪽 아래로 당기면 오른쪽 위로</li>
+        <li><b>길게</b> 당길수록 세게, 그리고 <b>높이</b> 뜬다</li>
+        <li>당기는 동안 <b>점선 공</b>이 갈 자리를 보여준다.
+            빨개지면 골대 밖이라는 뜻</li>
       </ul>
       <div style="margin-top:12px">
         <div class="gauge">
@@ -2308,12 +2465,12 @@ function buildRules(){
         </div>
       </div>
       <ul class="rulelist" style="margin-top:12px">
-        <li><b>살살</b> — 옆칸으로 뛴 골키퍼 <b>발에 걸린다</b></li>
-        <li><b>가운데</b> — 읽히면 막히고, <b>옆칸 손끝</b>에 걸릴 때도 있다</li>
-        <li><b>강슛</b> — 읽혀도 뚫을 수 있고, <b>옆칸 손끝도 지나간다</b></li>
+        <li><b>살살</b> — 낮게 간다. 옆칸으로 뛴 골키퍼 <b>발에 걸린다</b></li>
+        <li><b>가운데</b> — <b>아랫줄</b>로 간다. 읽히면 막히고, 옆칸 손끝에 걸릴 때도 있다</li>
+        <li><b>강슛</b> — <b>윗줄</b>로 간다. 읽혀도 뚫고, 옆칸 손끝도 지나간다</li>
         <li><b>실축</b> — 골대를 훌쩍 넘겨버린다</li>
       </ul>
-      <div class="ruletip">💡 세게 차면 골키퍼 손을 뚫지만, 넘길 위험도 커져.</div>
+      <div class="ruletip">💡 세게 차면 높고 빠르지만, 넘길 위험도 같이 커져.</div>
     </div>
 
     <div class="card">
