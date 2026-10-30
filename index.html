@@ -637,7 +637,7 @@ input:focus{outline:none;border-color:var(--pink)}
       <div class="modalicon">⚽</div>
       <h3>오늘 경기 끝!</h3>
       <p id="energy-desc"></p>
-      <button class="bigbtn" id="energy-records">순위 보기 🏆</button>
+      <button class="bigbtn" id="energy-records">기록 보기 🏆</button>
       <button class="bigbtn ghost" id="energy-close">닫기</button>
     </div>
   </div>
@@ -2036,7 +2036,7 @@ function resumeTimer(){
 }
 
 /* ---------- 에너지 안내 화면 ----------
-   문을 닫고 끝내지 않는다. 순위 보기와 선수 꾸미기는 에너지 없이도 되게 두어
+   문을 닫고 끝내지 않는다. 기록 보기와 선수 꾸미기는 에너지 없이도 되게 두어
    마무리가 부드럽게 되도록 한다. */
 function openEnergy(reason){
   $("energy-desc").innerHTML = esc(reason) + "<br>" + refillWhen() + "에 다시 가득 차요.";
@@ -2067,7 +2067,7 @@ function paintHomeEnergy(){
 
 /* ---------- 비밀번호 ----------
    이 앱은 주인 한 명의 것이다. 게스트 대결은 주인이 열어줘야 시작된다.
-   잠금을 세게 걸 생각은 없다 — 형제끼리의 약속을 눈에 보이게 만드는 장치다. */
+   잠금을 세게 걸 생각은 없다 — 주인과 게스트 사이의 약속을 눈에 보이게 만드는 장치다. */
 const PIN = { buf:"", mode:"", first:"", after:null };
 
 function openPin(mode, after){
@@ -2168,7 +2168,7 @@ function pinDone(){
   buzz([40,60,40]);
 }
 
-/* 10살이 비밀번호를 잊는 일은 실제로 일어난다.
+/* 아이가 비밀번호를 잊는 일은 실제로 일어난다.
    영영 잠기면 안 되므로 빠져나갈 길을 두되, 기록을 지우는 대가를 치르게 한다. */
 let forgotArmed = null;
 function disarmForgot(){
@@ -2270,7 +2270,7 @@ function confetti(){
 /* ============================================================
    규칙 화면
 
-   형제는 README를 읽지 않는다. 약슛이 옆칸에 걸린다는 것도, 강슛이 확률로
+   게스트는 README를 읽지 않는다. 약슛이 옆칸에 걸린다는 것도, 강슛이 확률로
    뚫린다는 것도 앱 안에서는 아무도 말해주지 않아서, 아이는 수십 판을 지고 나서야
    눈치챘다. 그걸 한 화면에 적는다.
 
